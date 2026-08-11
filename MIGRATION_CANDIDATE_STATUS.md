@@ -27,12 +27,14 @@ Persistent alpha27 local regression suite passes, including LicenseTokenPolicy, 
 
 ## Durable source snapshot
 
-A sanitized, non-release alpha27 migration work snapshot is archived in the ITthute Multimedia Toolkit Google Drive project root. Snapshot SHA-256:
+A sanitized, non-release alpha27 migration work snapshot is archived in the ITthute Multimedia Toolkit Google Drive project root. Current snapshot SHA-256:
 
-`69bf7562123119fcb88d5f2dbfb01c1662a588734158d838e8ad7f1e382824d0`
+`f6eb9431007032bd0c397718851f3286d3b2134f422456b8fb72d553cea3a021`
 
 Drive file ID: `1CaCnrm4zdp4ne6IUla_Ou5tKAiUwcJUA`
 Checksum Drive file ID: `1s1JN4PLXDu9_zmu8yt2rV_dZ714gdPPA`
+
+GitHub issue #1 tracks the complete sanitized alpha26/alpha27 source-tree import. The checkpoint/status commit is not a substitute for source synchronization.
 
 This snapshot is **not a release** and must not be placed in the formal release-versions archive as a substitute for a built/signed/tested release.
 
