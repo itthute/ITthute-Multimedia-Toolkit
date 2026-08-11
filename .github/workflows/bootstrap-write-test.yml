@@ -1,0 +1,25 @@
+name: Bootstrap write permission test
+on:
+  push:
+    branches: [bootstrap/action-write-test]
+permissions:
+  contents: write
+jobs:
+  prove-write:
+    if: ${{ !contains(github.event.head_commit.message, '[bootstrap-test-done]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Prove branch write and self-clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf 'GitHub Actions branch write verified at %s\n' "$(date -u +%FT%TZ)" > ACTION_WRITE_TEST.txt
+          rm -f .github/workflows/bootstrap-write-test.yml
+          git config user.name "ITthute Migration Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Verify bootstrap branch write [bootstrap-test-done]"
+          git push origin HEAD:bootstrap/action-write-test
