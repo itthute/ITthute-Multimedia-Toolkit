@@ -1,11 +1,10 @@
-name: Build alpha27 unsigned APK
+name: Export Android toolchain for alpha27
 
 on:
   push:
     branches:
       - feature/alpha27-controlled-migration
     paths:
-      - 'bootstrap/alpha27-android-build-input.tar.gz'
       - '.github/workflows/build-alpha27-unsigned.yml'
   workflow_dispatch:
 
@@ -13,82 +12,44 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  export-toolchain:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - name: Checkout candidate branch
-        uses: actions/checkout@v4
-
-      - name: Verify build-input archive
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo 'd992298cde788617a12f15f78f9ad8e6684f5cf93ad716bd15840e118c3f6238  bootstrap/alpha27-android-build-input.tar.gz' | sha256sum -c -
-
-      - name: Set up JDK 8
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '8'
-
-      - name: Install Android API 28 and Build Tools 28.0.3
+      - name: Install Android API 28 and build tools
         shell: bash
         run: |
           set -euo pipefail
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-28' 'build-tools;28.0.3'
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            'platforms;android-28' \
+            'build-tools;28.0.3' \
+            'build-tools;35.0.0'
           test -f "$ANDROID_HOME/platforms/android-28/android.jar"
           test -x "$ANDROID_HOME/build-tools/28.0.3/aapt"
           test -x "$ANDROID_HOME/build-tools/28.0.3/zipalign"
           test -x "$ANDROID_HOME/build-tools/28.0.3/apksigner"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/d8"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
 
-      - name: Extract exact alpha27 Android build input
+      - name: Package portable Android toolchain
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf work
-          mkdir work
-          tar -xzf bootstrap/alpha27-android-build-input.tar.gz -C work
-          chmod +x work/build.sh
-          grep -F 'android:versionName="2.0.0-alpha27"' work/AndroidManifest.xml
-          grep -F 'android:versionCode="20026"' work/AndroidManifest.xml
-          grep -F 'package="za.co.itthute.fetchaudiovid"' work/AndroidManifest.xml
+          mkdir -p export/sdk/platforms export/sdk/build-tools
+          cp -a "$ANDROID_HOME/platforms/android-28" export/sdk/platforms/
+          cp -a "$ANDROID_HOME/build-tools/28.0.3" export/sdk/build-tools/
+          cp -a "$ANDROID_HOME/build-tools/35.0.0" export/sdk/build-tools/
+          tar -C export -czf android-sdk-alpha27-toolchain.tar.gz sdk
+          sha256sum android-sdk-alpha27-toolchain.tar.gz | tee android-sdk-alpha27-toolchain.tar.gz.sha256
+          ls -lh android-sdk-alpha27-toolchain.tar.gz
 
-      - name: Build aligned unsigned APK
-        shell: bash
-        working-directory: work
-        env:
-          BUILD_TOOLS_VERSION: '28.0.3'
-          DEXER: dx
-        run: |
-          set -euo pipefail
-          ./build.sh
-          test -s build/apk/ITthute-Multimedia-Toolkit-v2.0.0-alpha27-unsigned.apk
-          "$ANDROID_HOME/build-tools/28.0.3/zipalign" -c -v 4 build/apk/ITthute-Multimedia-Toolkit-v2.0.0-alpha27-unsigned.apk
-          "$ANDROID_HOME/build-tools/28.0.3/aapt" dump badging build/apk/ITthute-Multimedia-Toolkit-v2.0.0-alpha27-unsigned.apk | tee build/apk/aapt-badging.txt
-          grep -F "package: name='za.co.itthute.fetchaudiovid' versionCode='20026' versionName='2.0.0-alpha27'" build/apk/aapt-badging.txt
-          sha256sum build/apk/ITthute-Multimedia-Toolkit-v2.0.0-alpha27-unsigned.apk | tee build/apk/ITthute-Multimedia-Toolkit-v2.0.0-alpha27-unsigned.apk.sha256
-
-      - name: Package local signing tools
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p artifact/android-build-tools-28.0.3
-          cp -a "$ANDROID_HOME/build-tools/28.0.3/apksigner" artifact/android-build-tools-28.0.3/
-          cp -a "$ANDROID_HOME/build-tools/28.0.3/zipalign" artifact/android-build-tools-28.0.3/
-          cp -a "$ANDROID_HOME/build-tools/28.0.3/aapt" artifact/android-build-tools-28.0.3/
-          cp -a "$ANDROID_HOME/build-tools/28.0.3/lib" artifact/android-build-tools-28.0.3/
-          cp work/build/apk/ITthute-Multimedia-Toolkit-v2.0.0-alpha27-unsigned.apk artifact/
-          cp work/build/apk/ITthute-Multimedia-Toolkit-v2.0.0-alpha27-unsigned.apk.sha256 artifact/
-          cp work/build/apk/aapt-badging.txt artifact/
-          printf '%s\n' 'd992298cde788617a12f15f78f9ad8e6684f5cf93ad716bd15840e118c3f6238  alpha27-android-build-input.tar.gz' > artifact/build-input.sha256
-          cp bootstrap/alpha27-android-build-input.tar.gz artifact/
-
-      - name: Upload unsigned APK and local signing tools
+      - name: Upload toolchain
         uses: actions/upload-artifact@v4
         with:
-          name: alpha27-unsigned-build
-          path: artifact/
+          name: android-sdk-alpha27-toolchain
+          path: |
+            android-sdk-alpha27-toolchain.tar.gz
+            android-sdk-alpha27-toolchain.tar.gz.sha256
           if-no-files-found: error
           retention-days: 7
